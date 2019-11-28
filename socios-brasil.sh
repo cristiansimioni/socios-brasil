@@ -39,8 +39,8 @@ while getopts "hdcub:" OPT; do
 done
 
 # Defines
-DOWNLOAD_DIR="./zip-files"
-CSV_DIR="./csv-files"
+DOWNLOAD_DIR="${PWD}/zip-files"
+CSV_DIR="${PWD}/csv-files"
 # This is the official website
 #WEBPAGE="http://receita.economia.gov.br/orientacao/tributaria/cadastros/cadastro-nacional-de-pessoas-juridicas-cnpj/dados-publicos-cnpj"
 #DOWNLOAD_URL="http://200.152.38.155/CNPJ/"
@@ -51,6 +51,7 @@ DOWNLOAD_URL="https://data.brasil.io/mirror/socios-brasil/"
 FILE_PREFIX="DADOS_ABERTOS_CNPJ_" # DADOS_ABERTOS_CNPJ_03
 FILE_EXTENSION=".zip"
 NUMBER_OF_FILES=20 #TODO: remove hardcoded number of files
+DOCKER_NAME=cnpj
 
 # Step 1: Download all necessary zip files
 if [ $opt_D ]; then
@@ -110,8 +111,8 @@ if [ ! -d "$CSV_DIR" ]; then
 fi
 
 echo "Starting the convertion of zip file to CSV files. Be patient, it takes time..."
-CNPJ_CMD="python3 CNPJ-full/cnpj.py $DOWNLOAD_DIR csv $CSV_DIR --dir"
-eval "$CNPJ_CMD"; xR=$?
+DOCKER_CMD="docker run -t -v $DOWNLOAD_DIR:/zip -v $CSV_DIR:/csv $DOCKER_NAME python3 ./CNPJ-full/cnpj.py /zip csv /csv --dir"
+eval "$DOCKER_CMD"; xR=$?
 
 # Check with convertion has finished sucessfully
 if [ $xR -ne 0 ]; then
