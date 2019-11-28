@@ -8,16 +8,22 @@ SCRIPT=$(basename $0)
 
 # Print usage help message
 usage() {
-  echo "Usage: ./$SCRIPT [-h] [-d -c -u -b|bucket name]"
-  echo "       -h .... print help message "
-  echo "       -d .... download all zip file from website"
-  echo "       -c .... convert zip files to CSV"
-  echo "       -u .... upload files to bucket s3"
-  echo 
-  echo "Examples:"
-  echo "       ./$SCRIPT -d -c -u -b <bucket name>     [for execute the whole process]"
-  echo "       ./$SCRIPT -d                            [only download the zip files]"
-  exit 1
+cat <<USAGE
+  
+Usage: ./$SCRIPT [-h] [-d -c -u -b|bucket name]
+       -h .... print help message
+       -d .... download all zip file from website
+       -c .... convert zip files to CSV
+       -u .... upload files to Amazon S3
+  
+Examples:
+       ./$SCRIPT -d -c -u -b <bucket name>     [for execute the whole process]
+       ./$SCRIPT -d                            [download the zip files]
+       ./$SCRIPT -c                            [convert zip files to csv|zip files must be available]
+       ./$SCRIPT -u -b <bucket name>           [upload csv file to Amazon S3]
+
+USAGE
+exit 1
 }
 
 # Get script options
@@ -44,6 +50,7 @@ WEBPAGE="https://data.brasil.io/mirror/socios-brasil/_meta/list.html"
 DOWNLOAD_URL="https://data.brasil.io/mirror/socios-brasil/"
 FILE_PREFIX="DADOS_ABERTOS_CNPJ_" # DADOS_ABERTOS_CNPJ_03
 FILE_EXTENSION=".zip"
+NUMBER_OF_FILES=20 #TODO: remove hardcoded number of files
 
 # Step 1: Download all necessary zip files
 if [ $opt_D ]; then
@@ -54,9 +61,10 @@ if [ ! -d "$DOWNLOAD_DIR" ]; then
 fi
 
 echo "Downloading all necessary files..."
-for i in {1..20}; do #TODO: remove hardcoded number of files
+for i in $(eval echo "{1..$NUMBER_OF_FILES}"); do
   
-  # It's needed to add 0 before file number if it is less than 10. Name convertion of the website
+  # It's needed to add 0 before file number if its number is less than 10. 
+  # Name convertion of the website
   if [ $i -lt 10 ]; then
     FILE_NAME="${FILE_PREFIX}0$i${FILE_EXTENSION}"   
   else
@@ -80,6 +88,22 @@ fi
 ## Step 2: Convert .zip file to CSV files
 if [ $opt_C ]; then
 
+# Do we already dowloaded all the zip files?
+echo "Checking if we have all necessary files"
+for i in $(eval echo "{1..$NUMBER_OF_FILES}"); do
+  if [ $i -lt 10 ]; then
+    FILE_NAME="${FILE_PREFIX}0$i${FILE_EXTENSION}"   
+  else
+    FILE_NAME="${FILE_PREFIX}${i}${FILE_EXTENSION}"
+  fi
+
+  if [ ! -f "${DOWNLOAD_DIR}/${FILE_NAME}" ]; then
+    echo "Missing $FILE_NAME. Please download it first." #TODO: maybe it's a good a idea to force the download here
+	exit 1;
+  fi
+
+done
+
 if [ ! -d "$CSV_DIR" ]; then
   echo "Creating output directory to save CSV files..."
   mkdir -p $CSV_DIR
@@ -101,17 +125,31 @@ fi
 ## Step 3: Upload all CSV files to Amazon Bucket S3
 if [ $opt_U ]; then
 
-# Upload files using AWS CLI
-echo "Starting the upload of all CSV files to Bucket $BUCKET_NAME"
-AWS_CMD="aws s3 sync $CSV_DIR s3://$BUCKET_NAME/"
-
-eval "$AWS_CMD"; xR=$?
-
-# Check with upload has finished properly
-if [ $xR -ne 0 ]; then
-  echo "Failed to upload CSV files. Aborting... :("
+# Check Bucket name
+if [ ! $BUCKET_NAME ]; then
+  echo "Missing bucket name. Aborting..."
   exit 1
 fi
-echo "The upload of CSV files has finished sucessfully. :)"
+
+# Do we have any file to be uploaded?
+FILES_TO_BE_UPLOADED=$(ls $CSV_DIR | grep .csv | wc -l)
+if [ $FILES_TO_BE_UPLOADED -gt 0 ]; then
+
+  # Upload files using AWS CLI
+  echo "Starting the upload all the $FILES_TO_BE_UPLOADED CSV files to Bucket $BUCKET_NAME"
+  AWS_CMD="aws s3 sync $CSV_DIR s3://$BUCKET_NAME/"
+
+  eval "$AWS_CMD"; xR=$?
+
+  # Check with upload has finished properly
+  if [ $xR -ne 0 ]; then
+    echo "Failed to upload CSV files. Aborting... :("
+    exit 1
+  fi
+  echo "The upload of CSV files has finished sucessfully. :)"
+else
+  echo "There are no csv files available for upload."
+  exit 1
+fi
 
 fi
