@@ -8,25 +8,26 @@ SCRIPT=$(basename $0)
 
 # Print usage help message
 usage() {
-  echo "Usage: ./$SCRIPT [-h] [-d -c -u]"
+  echo "Usage: ./$SCRIPT [-h] [-d -c -u -b|bucket name]"
   echo "       -h .... print help message "
   echo "       -d .... download all zip file from website"
   echo "       -c .... convert zip files to CSV"
   echo "       -u .... upload files to bucket s3"
   echo 
   echo "Examples:"
-  echo "       ./$SCRIPT -d -c -u      [for execute the whole process]"
-  echo "       ./$SCRIPT -d            [only download the zip files]"
+  echo "       ./$SCRIPT -d -c -u -b <bucket name>     [for execute the whole process]"
+  echo "       ./$SCRIPT -d                            [only download the zip files]"
   exit 1
 }
 
 # Get script options
-while getopts "hdc" OPT; do
+while getopts "hdcub:" OPT; do
   case $OPT in
   "h") usage;;
   "d") opt_D=1;; # Download zip files
   "c") opt_C=1;; # Convert zip files to CSV
   "u") opt_U=1;; # Upload files to bucket s3
+  "b") BUCKET_NAME=$OPTARG;;
   \?)  usage;;
   esac
 done
@@ -94,5 +95,23 @@ if [ $xR -ne 0 ]; then
   exit 1
 fi
 echo "The convertion has finished sucessfully. :)"
+
+fi
+
+## Step 3: Upload all CSV files to Amazon Bucket S3
+if [ $opt_U ]; then
+
+# Upload files using AWS CLI
+echo "Starting the upload of all CSV files to Bucket $BUCKET_NAME"
+AWS_CMD="aws s3 sync $CSV_DIR s3://$BUCKET_NAME/"
+
+eval "$AWS_CMD"; xR=$?
+
+# Check with upload has finished properly
+if [ $xR -ne 0 ]; then
+  echo "Failed to upload CSV files. Aborting... :("
+  exit 1
+fi
+echo "The upload of CSV files has finished sucessfully. :)"
 
 fi
