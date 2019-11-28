@@ -111,7 +111,7 @@ if [ ! -d "$CSV_DIR" ]; then
 fi
 
 echo "Starting the convertion of zip file to CSV files. Be patient, it takes time..."
-DOCKER_CMD="docker run -t -v $DOWNLOAD_DIR:/zip -v $CSV_DIR:/csv $DOCKER_NAME python3 ./CNPJ-full/cnpj.py /zip csv /csv --dir"
+DOCKER_CMD="sudo docker run -t -v $DOWNLOAD_DIR:/zip -v $CSV_DIR:/csv $DOCKER_NAME python3 ./CNPJ-full/cnpj.py /zip csv /csv --dir"
 eval "$DOCKER_CMD"; xR=$?
 
 # Check with convertion has finished sucessfully
